@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { Player } from "discord-player";
+import { DefaultExtractors } from '@discord-player/extractor';
 import mongoose from "mongoose";
 import "dotenv/config";
 
@@ -26,15 +27,8 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
+// Konfigurasi Player TANPA Lavalink (menggunakan extractor lokal)
 const player = new Player(client, {
-    nodes: [
-        {
-            name: 'default',
-            url: `${process.env.LAVALINK_HOST}:${process.env.LAVALINK_PORT}`,
-            password: process.env.LAVALINK_PASSWORD,
-            secure: false,
-        },
-    ],
     autoSkip: true,
     leaveOnEnd: true,
     leaveOnStop: true,
@@ -42,8 +36,8 @@ const player = new Player(client, {
     maxQueueSize: 1000,
 });
 
-// Tidak perlu memuat extractor ketika menggunakan Lavalink
-// Lavalink server akan menangani semua ekstraksi audio
+// Memuat extractor untuk mode non-Lavalink
+await player.extractors.loadMulti(DefaultExtractors);
 
 player.events.on("playerStart", (queue, track) => {
     if (queue.metadata && queue.metadata.channel) {
@@ -77,11 +71,7 @@ player.events.on("playerError", (queue, error) => {
     }
 });
 
-player.events.on("nodesManagerError", (node, error) => console.error(`❌ Lavalink node "${node.name}" error: ${error.message}`));
 player.events.on("debug", (message) => console.log(`[Player Debug] ${message}`));
-player.events.on("nodeConnect", (node) => console.log(`✅ Lavalink node "${node.name}" connected.`));
-player.events.on("nodeDisconnect", (node) => console.warn(`⚠️ Lavalink node "${node.name}" disconnected.`));
-player.events.on("nodeError", (node, error) => console.error(`❌ Lavalink node "${node.name}" experienced an error: ${error.message}`));
 
 client.once("ready", () => {
   console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
@@ -119,7 +109,7 @@ client.on("messageCreate", async (message) => {
   if (message.content === "!help") {
     return message.reply(`📜 **Daftar Command:**
 - !chat <pesan> ➔ Chat dengan AI
-- !play <url_youtube> ➔ Play audio dari YouTube (Lavalink)
+- !play <url_youtube> ➔ Play audio dari YouTube (Local Extractor)
 - !skip ➔ Skip lagu
 - !stop ➔ Stop lagu
 - !queue ➔ Tampilkan antrian lagu
@@ -161,7 +151,7 @@ client.on("messageCreate", async (message) => {
     }
   }
 
-  // Play YouTube Audio (Lavalink)
+  // Play YouTube Audio (Local Extractor - TANPA Lavalink)
   if (message.content.startsWith("!play ")) {
     const voiceChannel = message.member?.voice.channel;
     if (!voiceChannel) {
