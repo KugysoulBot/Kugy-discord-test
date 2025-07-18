@@ -1,5 +1,5 @@
 {
-  "name": "kugy-discord-bot",
+  "name": "kugy-bot",
   "version": "1.0.0",
   "description": "Discord bot with music functionality using Lavalink or Local Extractors",
   "main": "Index.mjs",
