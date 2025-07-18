@@ -11,13 +11,32 @@ const player = new Player(client);
 
 try {
     console.log("📦 Importing @discord-player/extractor...");
-    const { DefaultExtractors } = await import('@discord-player/extractor');
+    const extractorModule = await import('@discord-player/extractor');
+    console.log("📋 Available exports:", Object.keys(extractorModule));
     
-    console.log("✅ Import berhasil!");
-    console.log("📋 Available extractors:", Object.keys(DefaultExtractors));
+    // Try different ways to import
+    let extractors;
+    if (extractorModule.DefaultExtractors) {
+        extractors = extractorModule.DefaultExtractors;
+        console.log("✅ Using DefaultExtractors");
+    } else if (extractorModule.default) {
+        extractors = extractorModule.default;
+        console.log("✅ Using default export");
+    } else {
+        console.log("📋 All available extractors:", Object.keys(extractorModule));
+        // Try to use all available extractors
+        extractors = Object.values(extractorModule).filter(item => 
+            typeof item === 'function' || (typeof item === 'object' && item.constructor)
+        );
+        console.log("✅ Using all available extractors");
+    }
     
     console.log("🔄 Loading extractors...");
-    await player.extractors.loadMulti(DefaultExtractors);
+    if (Array.isArray(extractors)) {
+        await player.extractors.loadMulti(extractors);
+    } else {
+        await player.extractors.loadMulti(extractors);
+    }
     
     console.log("✅ Extractors loaded successfully!");
     console.log(`📊 Total extractors loaded: ${player.extractors.store.size}`);
