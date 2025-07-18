@@ -3,6 +3,15 @@ import { Player } from "discord-player";
 import mongoose from "mongoose";
 import "dotenv/config";
 
+// Import extractor sebagai fallback
+let DefaultExtractors;
+try {
+    const extractorModule = await import('@discord-player/extractor');
+    DefaultExtractors = extractorModule.DefaultExtractors;
+} catch (error) {
+    console.log("⚠️ @discord-player/extractor tidak tersedia, akan menggunakan mode Lavalink saja");
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -26,24 +35,43 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
-const player = new Player(client, {
-    nodes: [
+// Konfigurasi Player dengan fallback
+let playerConfig = {
+    autoSkip: true,
+    leaveOnEnd: true,
+    leaveOnStop: true,
+    leaveOnEmpty: true,
+    maxQueueSize: 1000,
+};
+
+// Cek apakah Lavalink dikonfigurasi
+const hasLavalink = process.env.LAVALINK_HOST && process.env.LAVALINK_PORT && process.env.LAVALINK_PASSWORD;
+
+if (hasLavalink) {
+    console.log("🎵 Menggunakan konfigurasi Lavalink");
+    playerConfig.nodes = [
         {
             name: 'default',
             url: `${process.env.LAVALINK_HOST}:${process.env.LAVALINK_PORT}`,
             password: process.env.LAVALINK_PASSWORD,
             secure: false,
         },
-    ],
-    autoSkip: true,
-    leaveOnEnd: true,
-    leaveOnStop: true,
-    leaveOnEmpty: true,
-    maxQueueSize: 1000,
-});
+    ];
+} else {
+    console.log("🎵 Menggunakan konfigurasi Local Extractor");
+}
 
-// Tidak perlu memuat extractor ketika menggunakan Lavalink
-// Lavalink server akan menangani semua ekstraksi audio
+const player = new Player(client, playerConfig);
+
+// Load extractor jika tidak menggunakan Lavalink atau sebagai fallback
+if (!hasLavalink && DefaultExtractors) {
+    console.log("📦 Memuat Default Extractors...");
+    await player.extractors.loadMulti(DefaultExtractors);
+    console.log("✅ Default Extractors berhasil dimuat");
+} else if (!hasLavalink && !DefaultExtractors) {
+    console.error("❌ Tidak ada Lavalink dan tidak ada Extractor! Bot tidak akan bisa memutar musik.");
+    console.error("💡 Solusi: Install @discord-player/extractor atau konfigurasi Lavalink");
+}
 
 player.events.on("playerStart", (queue, track) => {
     if (queue.metadata && queue.metadata.channel) {
