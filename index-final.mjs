@@ -200,10 +200,17 @@ client.on("messageCreate", async (message) => {
             return message.reply("❌ Tidak ada extractor yang ter-load! Restart bot dan pastikan dependencies terinstall.");
         }
 
-        // Search terlebih dahulu
-        const searchResult = await player.search(query, {
+        // Clean URL dari parameter yang tidak perlu
+        let cleanQuery = query;
+        if (query.includes('?si=') || query.includes('&si=')) {
+            cleanQuery = query.split('?si=')[0].split('&si=')[0];
+            console.log(`🧹 Cleaned URL: ${cleanQuery}`);
+        }
+
+        // Search terlebih dahulu - gunakan "auto" untuk kompatibilitas terbaik
+        const searchResult = await player.search(cleanQuery, {
             requestedBy: message.author,
-            searchEngine: "youtube"
+            searchEngine: "auto"
         });
 
         if (!searchResult || !searchResult.tracks.length) {
