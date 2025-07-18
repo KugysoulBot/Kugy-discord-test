@@ -26,8 +26,8 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
-// Konfigurasi Player (Local Extractor Only - ROBUST VERSION!)
-console.log("🎵 Menggunakan Local Extractor dengan YouTube Support (ROBUST)");
+// Konfigurasi Player (FINAL WORKING VERSION!)
+console.log("🎵 Discord Music Bot - FINAL VERSION");
 
 const player = new Player(client, {
     ytdlOptions: {
@@ -39,20 +39,16 @@ const player = new Player(client, {
 // Function untuk membersihkan URL YouTube
 function cleanYouTubeURL(url) {
     try {
-        // Jika bukan URL, return as is
         if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
             return url;
         }
         
-        // Clean URL dari parameter yang tidak perlu
         let cleanUrl = url;
+        cleanUrl = cleanUrl.split('&')[0];
+        cleanUrl = cleanUrl.split('?si=')[0];
+        cleanUrl = cleanUrl.split('?t=')[0];
         
-        // Remove tracking parameters
-        cleanUrl = cleanUrl.split('&')[0]; // Remove everything after first &
-        cleanUrl = cleanUrl.split('?si=')[0]; // Remove ?si= parameter
-        cleanUrl = cleanUrl.split('?t=')[0]; // Remove ?t= parameter
-        
-        console.log(`🧹 URL dibersihkan: ${url} → ${cleanUrl}`);
+        console.log(`🧹 URL cleaned: ${url} → ${cleanUrl}`);
         return cleanUrl;
     } catch (error) {
         console.log(`⚠️ Error cleaning URL, using original: ${url}`);
@@ -60,69 +56,42 @@ function cleanYouTubeURL(url) {
     }
 }
 
-// Load YouTube extractor dan default extractors
-console.log("📦 Memuat YouTube Extractor...");
-
+// Load extractors
 let extractorsLoaded = false;
 
 async function loadExtractors() {
     try {
-        // Load YouTube extractor (WAJIB untuk YouTube!)
         const { YoutubeiExtractor } = await import('discord-player-youtubei');
         await player.extractors.register(YoutubeiExtractor, {});
-        console.log("✅ YouTube Extractor berhasil dimuat!");
+        console.log("✅ YouTube Extractor loaded!");
         
-        // Load default extractors untuk platform lain
         const { DefaultExtractors } = await import('@discord-player/extractor');
         await player.extractors.loadMulti(DefaultExtractors);
-        console.log("✅ Default Extractors berhasil dimuat!");
+        console.log("✅ Default Extractors loaded!");
         
-        // Verifikasi extractor yang ter-load
         const loadedExtractors = player.extractors.store.size;
-        console.log(`📊 Total extractor ter-load: ${loadedExtractors}`);
-        
-        // List semua extractor
-        console.log("📝 Extractor yang tersedia:");
-        for (const [name, extractor] of player.extractors.store) {
-            console.log(`  - ${extractor.constructor.name}`);
-        }
+        console.log(`📊 Total extractors loaded: ${loadedExtractors}`);
         
         extractorsLoaded = true;
         
-        // Test search setelah load
-        console.log("\n🧪 Testing search setelah load...");
-        const testUrl = "https://youtu.be/fDrTbLXHKu8";
-        const testResult = await player.search(testUrl, {
-            searchEngine: "youtube"
-        });
-        
-        if (testResult && testResult.tracks.length > 0) {
-            console.log(`✅ Test search berhasil! Found: ${testResult.tracks[0].title}`);
-        } else {
-            console.log("❌ Test search gagal");
-        }
-        
     } catch (error) {
         console.error("❌ Error loading extractors:", error.message);
-        console.error("💡 Install dependencies:");
-        console.error("   npm install discord-player-youtubei @discord-player/extractor");
         extractorsLoaded = false;
     }
 }
 
-// Load extractors
 await loadExtractors();
 
-// Event handlers
+// Event handlers (FIXED!)
 player.events.on("playerStart", (queue, track) => {
-    console.log(`🎶 Mulai memutar: ${track.title} - ${track.author}`);
+    console.log(`🎶 Now playing: ${track.title} - ${track.author}`);
     if (queue.metadata && queue.metadata.channel) {
         queue.metadata.channel.send(`🎶 Sekarang memutar: **${track.title}** oleh **${track.author}**`);
     }
 });
 
 player.events.on("emptyQueue", (queue) => {
-    console.log("📭 Antrian kosong, keluar dari voice channel");
+    console.log("📭 Queue empty, leaving voice channel");
     if (queue.metadata && queue.metadata.channel) {
         queue.metadata.channel.send("✅ Antrian kosong. Keluar dari channel suara.");
     }
@@ -139,11 +108,16 @@ player.events.on("playerError", (queue, error) => {
     console.error(`❌ Player error event:`, error);
 });
 
+// FIXED: Debug event handler
 player.events.on("debug", (message) => {
-    // Filter out noisy YouTube.js warnings
-    const msgStr = String(message);
-    if (!msgStr.includes('[YOUTUBEJS]') && !msgStr.includes('InnertubeError')) {
-        console.log(`[Player Debug] ${msgStr}`);
+    // Safely convert to string and filter noisy warnings
+    try {
+        const msgStr = typeof message === 'string' ? message : String(message);
+        if (!msgStr.includes('[YOUTUBEJS]') && !msgStr.includes('InnertubeError') && !msgStr.includes('GridShelfView')) {
+            console.log(`[Player Debug] ${msgStr}`);
+        }
+    } catch (e) {
+        // Ignore debug message errors
     }
 });
 
@@ -191,7 +165,8 @@ client.on("messageCreate", async (message) => {
 
 🎵 **Contoh:**
 - !play https://youtu.be/fDrTbLXHKu8
-- !play never gonna give you up`);
+- !play never gonna give you up
+- !play jangan menyerah`);
   }
 
   // AI Chat
@@ -229,7 +204,7 @@ client.on("messageCreate", async (message) => {
     }
   }
 
-  // Play YouTube Audio (ROBUST VERSION!)
+  // Play YouTube Audio (FINAL WORKING VERSION!)
   if (message.content.startsWith("!play ")) {
     const voiceChannel = message.member?.voice.channel;
     if (!voiceChannel) {
@@ -244,30 +219,28 @@ client.on("messageCreate", async (message) => {
     // Clean URL jika YouTube
     query = cleanYouTubeURL(query);
     
-    console.log(`🔍 Mencari: ${query}`);
+    console.log(`🔍 Searching: ${query}`);
     
-    // Cek apakah extractors sudah loaded
     if (!extractorsLoaded) {
         return message.reply("❌ Extractors belum selesai loading. Tunggu sebentar dan coba lagi.");
     }
     
     try {
-        // Cek jumlah extractor sebelum play
         const extractorCount = player.extractors.store.size;
-        console.log(`📊 Extractor tersedia: ${extractorCount}`);
+        console.log(`📊 Available extractors: ${extractorCount}`);
         
         if (extractorCount === 0) {
             return message.reply("❌ Tidak ada extractor yang ter-load! Restart bot dan pastikan dependencies terinstall.");
         }
 
-        // Search dengan multiple attempts
+        // Search dengan retry mechanism
         let searchResult = null;
         let attempts = 0;
-        const maxAttempts = 3;
+        const maxAttempts = 2;
         
         while (!searchResult && attempts < maxAttempts) {
             attempts++;
-            console.log(`🔍 Attempt ${attempts}/${maxAttempts} untuk: ${query}`);
+            console.log(`🔍 Attempt ${attempts}/${maxAttempts} for: ${query}`);
             
             try {
                 searchResult = await player.search(query, {
@@ -281,15 +254,9 @@ client.on("messageCreate", async (message) => {
                 
                 // Jika gagal dan ini URL, coba tanpa parameter
                 if (attempts === 1 && query.includes('youtube')) {
-                    query = query.split('?')[0]; // Remove all parameters
-                    console.log(`🧹 Mencoba tanpa parameter: ${query}`);
+                    query = query.split('?')[0];
+                    console.log(`🧹 Trying without parameters: ${query}`);
                     continue;
-                }
-                
-                // Jika masih gagal, tunggu sebentar
-                if (attempts < maxAttempts) {
-                    console.log(`⏳ Menunggu ${attempts} detik sebelum attempt berikutnya...`);
-                    await new Promise(resolve => setTimeout(resolve, attempts * 1000));
                 }
                 
             } catch (searchError) {
@@ -301,14 +268,14 @@ client.on("messageCreate", async (message) => {
         }
 
         if (!searchResult || !searchResult.tracks.length) {
-            console.log(`❌ Tidak ada hasil setelah ${maxAttempts} attempts untuk: ${query}`);
-            return message.reply(`❌ Tidak ditemukan hasil untuk: ${query}\n💡 Coba dengan:\n- URL YouTube yang berbeda\n- Nama lagu saja (tanpa URL)`);
+            console.log(`❌ No results after ${maxAttempts} attempts for: ${query}`);
+            return message.reply(`❌ Tidak ditemukan hasil untuk: ${query}\n💡 Coba dengan nama lagu saja atau URL YouTube yang berbeda.`);
         }
 
-        console.log(`✅ Ditemukan ${searchResult.tracks.length} track(s) pada attempt ${attempts}`);
+        console.log(`✅ Found ${searchResult.tracks.length} track(s) on attempt ${attempts}`);
         console.log(`🎵 Playing: ${searchResult.tracks[0].title} - ${searchResult.tracks[0].author}`);
 
-        // Play menggunakan search result
+        // Play the track
         const { track } = await player.play(voiceChannel, searchResult, {
             nodeOptions: {
                 metadata: {
@@ -326,7 +293,7 @@ client.on("messageCreate", async (message) => {
             await message.reply(`✅ Ditambahkan ke antrian: **${track.title}**`);
         }
     } catch (e) {
-        console.error(`❌ Error saat mencoba memutar lagu:`, e);
+        console.error(`❌ Error playing song:`, e);
         await message.reply(`❌ Maaf, tidak bisa memutar lagu itu: ${e.message}\n💡 Coba dengan nama lagu saja atau URL YouTube yang berbeda.`);
     }
   }
