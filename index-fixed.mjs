@@ -3,15 +3,6 @@ import { Player } from "discord-player";
 import mongoose from "mongoose";
 import "dotenv/config";
 
-// Import extractor sebagai fallback
-let DefaultExtractors;
-try {
-    const extractorModule = await import('@discord-player/extractor');
-    DefaultExtractors = extractorModule.DefaultExtractors;
-} catch (error) {
-    console.log("⚠️ @discord-player/extractor tidak tersedia, akan menggunakan mode Lavalink saja");
-}
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -35,108 +26,66 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", userSchema);
 
-// Konfigurasi Player dengan fallback
-let playerConfig = {
-    autoSkip: true,
-    leaveOnEnd: true,
-    leaveOnStop: true,
-    leaveOnEmpty: true,
-    maxQueueSize: 1000,
-};
+// Konfigurasi Player TANPA Lavalink (Local Extractor Only)
+console.log("🎵 Menggunakan Local Extractor (Tanpa Lavalink)");
 
-// Cek apakah Lavalink dikonfigurasi
-const hasLavalink = process.env.LAVALINK_HOST && process.env.LAVALINK_PORT && process.env.LAVALINK_PASSWORD;
+const player = new Player(client, {
+    ytdlOptions: {
+        quality: 'highestaudio',
+        highWaterMark: 1 << 25
+    }
+});
 
-if (hasLavalink) {
-    console.log("🎵 Menggunakan konfigurasi Lavalink");
-    playerConfig.nodes = [
-        {
-            name: 'default',
-            url: `${process.env.LAVALINK_HOST}:${process.env.LAVALINK_PORT}`,
-            password: process.env.LAVALINK_PASSWORD,
-            secure: false,
-        },
-    ];
-} else {
-    console.log("🎵 Menggunakan konfigurasi Local Extractor");
-}
+// Load extractor dengan cara yang benar untuk discord-player v7
+console.log("📦 Memuat Default Extractors...");
 
-const player = new Player(client, playerConfig);
-
-// Load extractor sebagai fallback atau primary
-if (DefaultExtractors) {
-    console.log("📦 Memuat Default Extractors sebagai fallback...");
+// Import dan load extractor
+try {
+    const { DefaultExtractors } = await import('@discord-player/extractor');
     await player.extractors.loadMulti(DefaultExtractors);
     console.log("✅ Default Extractors berhasil dimuat");
-} else {
-    console.error("❌ @discord-player/extractor tidak terinstall!");
-    console.error("💡 Jalankan: npm install @discord-player/extractor");
-    console.error("⚠️ Bot mungkin tidak bisa memutar musik tanpa extractor atau Lavalink yang aktif");
+    
+    // Verifikasi extractor yang ter-load
+    const loadedExtractors = player.extractors.store.size;
+    console.log(`📊 Jumlah extractor ter-load: ${loadedExtractors}`);
+    
+    if (loadedExtractors === 0) {
+        console.error("❌ Tidak ada extractor yang ter-load!");
+    }
+} catch (error) {
+    console.error("❌ Error loading extractors:", error.message);
+    console.error("💡 Pastikan @discord-player/extractor terinstall: npm install @discord-player/extractor");
 }
 
-// Event untuk monitoring koneksi Lavalink
-if (hasLavalink) {
-    let lavaLinkConnected = false;
-    
-    player.events.on("nodeConnect", (node) => {
-        console.log(`✅ Lavalink node "${node.name}" connected successfully!`);
-        lavaLinkConnected = true;
-    });
-    
-    player.events.on("nodeDisconnect", (node) => {
-        console.warn(`⚠️ Lavalink node "${node.name}" disconnected!`);
-        lavaLinkConnected = false;
-    });
-    
-    player.events.on("nodeError", (node, error) => {
-        console.error(`❌ Lavalink node "${node.name}" error: ${error.message}`);
-        lavaLinkConnected = false;
-    });
-    
-    // Cek koneksi Lavalink setelah 5 detik
-    setTimeout(() => {
-        if (!lavaLinkConnected) {
-            console.warn("⚠️ Lavalink tidak terhubung setelah 5 detik!");
-            console.warn("💡 Pastikan Lavalink server berjalan di: " + process.env.LAVALINK_HOST + ":" + process.env.LAVALINK_PORT);
-            console.warn("🔄 Bot akan menggunakan extractor lokal sebagai fallback");
-        }
-    }, 5000);
-}
-
+// Event handlers
 player.events.on("playerStart", (queue, track) => {
+    console.log(`🎶 Mulai memutar: ${track.title} - ${track.author}`);
     if (queue.metadata && queue.metadata.channel) {
         queue.metadata.channel.send(`🎶 Sekarang memutar: **${track.title}** oleh **${track.author}**`);
-    } else {
-        const channel = client.channels.cache.get(queue.textChannel);
-        if (channel) channel.send(`🎶 Sekarang memutar: **${track.title}** oleh **${track.author}**`);
     }
 });
 
 player.events.on("emptyQueue", (queue) => {
+    console.log("📭 Antrian kosong, keluar dari voice channel");
     if (queue.metadata && queue.metadata.channel) {
         queue.metadata.channel.send("✅ Antrian kosong. Keluar dari channel suara.");
-    } else {
-        const channel = client.channels.cache.get(queue.textChannel);
-        if (channel) channel.send("✅ Antrian kosong. Keluar dari channel suara.");
     }
 });
 
 player.events.on("error", (queue, error) => {
-    console.error(`❌ Error dari discord-player di guild ${queue.guild.name}:`, error);
+    console.error(`❌ Player error:`, error);
     if (queue.metadata && queue.metadata.channel) {
-        queue.metadata.channel.send(`❌ Terjadi kesalahan saat memutar: ${error.message}`);
+        queue.metadata.channel.send(`❌ Terjadi kesalahan: ${error.message}`);
     }
 });
 
 player.events.on("playerError", (queue, error) => {
-    console.error(`❌ Player error event dari guild ${queue.guild.name}:`, error);
-    if (queue.metadata && queue.metadata.channel) {
-        queue.metadata.channel.send(`❌ Terjadi kesalahan pada player: ${error.message}`);
-    }
+    console.error(`❌ Player error event:`, error);
 });
 
-player.events.on("nodesManagerError", (node, error) => console.error(`❌ Lavalink nodes manager error: ${error.message}`));
-player.events.on("debug", (message) => console.log(`[Player Debug] ${message}`));
+player.events.on("debug", (message) => {
+    console.log(`[Player Debug] ${message}`);
+});
 
 client.once("ready", () => {
   console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
@@ -174,7 +123,7 @@ client.on("messageCreate", async (message) => {
   if (message.content === "!help") {
     return message.reply(`📜 **Daftar Command:**
 - !chat <pesan> ➔ Chat dengan AI
-- !play <url_youtube> ➔ Play audio dari YouTube (Lavalink)
+- !play <url_youtube> ➔ Play audio dari YouTube
 - !skip ➔ Skip lagu
 - !stop ➔ Stop lagu
 - !queue ➔ Tampilkan antrian lagu
@@ -216,7 +165,7 @@ client.on("messageCreate", async (message) => {
     }
   }
 
-  // Play YouTube Audio (Lavalink)
+  // Play YouTube Audio (Local Extractor)
   if (message.content.startsWith("!play ")) {
     const voiceChannel = message.member?.voice.channel;
     if (!voiceChannel) {
@@ -228,8 +177,30 @@ client.on("messageCreate", async (message) => {
         return message.reply('Tolong berikan nama lagu atau link YouTube!');
     }
 
+    console.log(`🔍 Mencari: ${query}`);
+    
     try {
-        const { track } = await player.play(voiceChannel, query, {
+        // Cek jumlah extractor sebelum play
+        const extractorCount = player.extractors.store.size;
+        console.log(`📊 Extractor tersedia: ${extractorCount}`);
+        
+        if (extractorCount === 0) {
+            return message.reply("❌ Tidak ada extractor yang ter-load! Restart bot dan pastikan @discord-player/extractor terinstall.");
+        }
+
+        const searchResult = await player.search(query, {
+            requestedBy: message.author,
+            searchEngine: "youtube"
+        });
+
+        if (!searchResult || !searchResult.tracks.length) {
+            console.log(`❌ Tidak ada hasil untuk: ${query}`);
+            return message.reply(`❌ Tidak ditemukan hasil untuk: ${query}`);
+        }
+
+        console.log(`✅ Ditemukan ${searchResult.tracks.length} track(s)`);
+
+        const { track } = await player.play(voiceChannel, searchResult, {
             nodeOptions: {
                 metadata: {
                     channel: message.channel,
@@ -242,11 +213,11 @@ client.on("messageCreate", async (message) => {
         const queue = player.queues.get(message.guild.id);
         if (track.playlist) {
             await message.reply(`✅ Playlist ditambahkan: **${track.playlist.title}** (${track.playlist.tracks.length} lagu)`);
-        } else if (queue.tracks.size > 0 && queue.currentTrack !== track) {
+        } else if (queue && queue.tracks.size > 0 && queue.currentTrack !== track) {
             await message.reply(`✅ Ditambahkan ke antrian: **${track.title}**`);
         }
     } catch (e) {
-        console.error(`Error saat mencoba memutar lagu: ${e.message}`);
+        console.error(`❌ Error saat mencoba memutar lagu:`, e);
         await message.reply(`❌ Maaf, tidak bisa memutar lagu itu: ${e.message}`);
     }
   }

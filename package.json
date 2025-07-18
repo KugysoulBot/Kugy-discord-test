@@ -1,5 +1,5 @@
 {
-  "name": "kugy-discord-bot",
+  "name": "kugy-bot",
   "version": "1.0.0",
   "description": "Discord bot with music functionality using Lavalink or Local Extractors",
   "main": "Index.mjs",
@@ -12,10 +12,11 @@
     "clean": "./cleanup-and-restart.sh"
   },
   "dependencies": {
-    "discord.js": "^14.21.0",
     "discord-player": "^7.1.0",
-    "mongoose": "^8.16.3",
-    "dotenv": "^16.4.5"
+    "discord-player-youtubei": "^1.5.0",
+    "discord.js": "^14.21.0",
+    "dotenv": "^16.6.1",
+    "mongoose": "^8.16.4"
   },
   "optionalDependencies": {
     "@discord-player/extractor": "^7.1.0"
@@ -23,7 +24,13 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["discord", "bot", "music", "lavalink", "nodejs"],
+  "keywords": [
+    "discord",
+    "bot",
+    "music",
+    "lavalink",
+    "nodejs"
+  ],
   "author": "KugySoul",
   "license": "MIT"
 }
