@@ -14,7 +14,17 @@ cp index.mjs index.mjs.backup-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
 
 # Install required dependencies
 echo "📦 Installing dependencies..."
-npm install discord-player-youtubei @discord-player/extractor --save
+npm install discord-player-youtubei @discord-player/extractor ffmpeg-static @ffmpeg-installer/ffmpeg --save
+
+# Install system FFmpeg if not exists
+echo "🎵 Checking FFmpeg..."
+if ! command -v ffmpeg &> /dev/null; then
+    echo "⬇️ Installing system FFmpeg..."
+    apt update && apt install -y ffmpeg
+    echo "✅ FFmpeg installed!"
+else
+    echo "✅ FFmpeg already installed!"
+fi
 
 # Download fixed version
 echo "⬇️ Downloading FIXED version..."
