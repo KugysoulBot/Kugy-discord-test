@@ -63,14 +63,44 @@ if (hasLavalink) {
 
 const player = new Player(client, playerConfig);
 
-// Load extractor jika tidak menggunakan Lavalink atau sebagai fallback
-if (!hasLavalink && DefaultExtractors) {
-    console.log("📦 Memuat Default Extractors...");
+// Load extractor sebagai fallback atau primary
+if (DefaultExtractors) {
+    console.log("📦 Memuat Default Extractors sebagai fallback...");
     await player.extractors.loadMulti(DefaultExtractors);
     console.log("✅ Default Extractors berhasil dimuat");
-} else if (!hasLavalink && !DefaultExtractors) {
-    console.error("❌ Tidak ada Lavalink dan tidak ada Extractor! Bot tidak akan bisa memutar musik.");
-    console.error("💡 Solusi: Install @discord-player/extractor atau konfigurasi Lavalink");
+} else {
+    console.error("❌ @discord-player/extractor tidak terinstall!");
+    console.error("💡 Jalankan: npm install @discord-player/extractor");
+    console.error("⚠️ Bot mungkin tidak bisa memutar musik tanpa extractor atau Lavalink yang aktif");
+}
+
+// Event untuk monitoring koneksi Lavalink
+if (hasLavalink) {
+    let lavaLinkConnected = false;
+    
+    player.events.on("nodeConnect", (node) => {
+        console.log(`✅ Lavalink node "${node.name}" connected successfully!`);
+        lavaLinkConnected = true;
+    });
+    
+    player.events.on("nodeDisconnect", (node) => {
+        console.warn(`⚠️ Lavalink node "${node.name}" disconnected!`);
+        lavaLinkConnected = false;
+    });
+    
+    player.events.on("nodeError", (node, error) => {
+        console.error(`❌ Lavalink node "${node.name}" error: ${error.message}`);
+        lavaLinkConnected = false;
+    });
+    
+    // Cek koneksi Lavalink setelah 5 detik
+    setTimeout(() => {
+        if (!lavaLinkConnected) {
+            console.warn("⚠️ Lavalink tidak terhubung setelah 5 detik!");
+            console.warn("💡 Pastikan Lavalink server berjalan di: " + process.env.LAVALINK_HOST + ":" + process.env.LAVALINK_PORT);
+            console.warn("🔄 Bot akan menggunakan extractor lokal sebagai fallback");
+        }
+    }, 5000);
 }
 
 player.events.on("playerStart", (queue, track) => {
@@ -105,11 +135,8 @@ player.events.on("playerError", (queue, error) => {
     }
 });
 
-player.events.on("nodesManagerError", (node, error) => console.error(`❌ Lavalink node "${node.name}" error: ${error.message}`));
+player.events.on("nodesManagerError", (node, error) => console.error(`❌ Lavalink nodes manager error: ${error.message}`));
 player.events.on("debug", (message) => console.log(`[Player Debug] ${message}`));
-player.events.on("nodeConnect", (node) => console.log(`✅ Lavalink node "${node.name}" connected.`));
-player.events.on("nodeDisconnect", (node) => console.warn(`⚠️ Lavalink node "${node.name}" disconnected.`));
-player.events.on("nodeError", (node, error) => console.error(`❌ Lavalink node "${node.name}" experienced an error: ${error.message}`));
 
 client.once("ready", () => {
   console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
