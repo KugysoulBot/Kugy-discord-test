@@ -1,15 +1,18 @@
 {
   "name": "kugy-bot",
-  "version": "1.0.0",
-  "description": "Discord bot with music functionality using Lavalink or Local Extractors",
-  "main": "Index.mjs",
+  "version": "1.1.0",
+  "description": "Discord bot with music functionality using FFmpeg v7 compatible configuration",
+  "main": "index-ffmpeg-v7-compatible.mjs",
   "type": "module",
   "scripts": {
-    "start": "node Index.mjs",
+    "start": "node index-ffmpeg-v7-compatible.mjs",
+    "start:legacy": "node Index.mjs",
     "start:local": "node index-without-lavalink.mjs",
-    "dev": "node --watch Index.mjs",
+    "dev": "node --watch index-ffmpeg-v7-compatible.mjs",
+    "dev:legacy": "node --watch Index.mjs",
     "dev:local": "node --watch index-without-lavalink.mjs",
-    "clean": "./cleanup-and-restart.sh"
+    "clean": "./cleanup-and-restart.sh",
+    "ffmpeg:check": "ffmpeg -version"
   },
   "dependencies": {
     "discord-player": "^7.1.0",
@@ -26,13 +29,15 @@
     "@discord-player/extractor": "^7.1.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "ffmpeg": ">=7.0.0"
   },
   "keywords": [
     "discord",
     "bot",
     "music",
-    "lavalink",
+    "ffmpeg-v7",
+    "youtube",
     "nodejs"
   ],
   "author": "KugySoul",
